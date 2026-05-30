@@ -72,6 +72,16 @@ async function init() {
         localStorage.setItem('kds_theme', isLight ? 'light' : 'dark');
     });
 
+    // Lógica de Logout
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+        try {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+        } catch (err) {
+            console.error('Erro ao sair:', err);
+        }
+    });
+
     // Iniciar
     await fetchPracas();
     connectSSE();

@@ -20,6 +20,12 @@ app.post('/api/login', (req, res) => {
   }
 });
 
+// Endpoint de Logout
+app.post('/api/logout', (req, res) => {
+  res.clearCookie('kds_auth');
+  res.json({ success: true });
+});
+
 // Middleware de Autenticação
 app.use((req, res, next) => {
   const publicRoutes = ['/login.html', '/api/login', '/style.css'];
