@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Joaquina KDS - Acesso Restrito</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: var(--bg);
+        }
+        .login-box {
+            background: var(--surface);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .login-box h1 {
+            font-weight: 800;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .login-box h1 span {
+            color: var(--brand);
+        }
+        .login-box p {
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+        .input-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--brand);
+        }
+        .btn-login {
+            width: 100%;
+            padding: 1rem;
+            background: var(--brand);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 1rem;
+        }
+        .btn-login:hover {
+            background: var(--brand-hover);
+        }
+        .error-msg {
+            color: var(--danger);
+            margin-top: 1rem;
+            display: none;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h1>JOAQUINA <span>KDS</span></h1>
+        <p>Acesso Restrito à Cozinha</p>
+        
+        <form id="login-form">
+            <div class="input-group">
+                <label for="username">Usuário</label>
+                <input type="text" id="username" name="username" required autocomplete="username">
+            </div>
+            <div class="input-group">
+                <label for="password">Senha</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-login" id="btn-submit">Entrar</button>
+            <div class="error-msg" id="error-msg">Usuário ou senha incorretos.</div>
+        </form>
+    </div>
+
+    <script>
+        // Carrega o tema salvo
+        if (localStorage.getItem('kds_theme') === 'light') {
+            document.body.classList.add('light-mode');
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit');
+            const errorMsg = document.getElementById('error-msg');
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            btn.innerText = 'Autenticando...';
+            btn.disabled = true;
+            errorMsg.style.display = 'none';
+            
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (res.ok) {
+                    window.location.href = '/';
+                } else {
+                    errorMsg.style.display = 'block';
+                    btn.innerText = 'Entrar';
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                errorMsg.innerText = 'Erro de comunicação com o servidor.';
+                errorMsg.style.display = 'block';
+                btn.innerText = 'Entrar';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

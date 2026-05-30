@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Simulado Jotajá</title>
+    <style>
+        :root {
+            --primary: #f43f5e;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #0f172a;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .panel {
+            background: var(--surface);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+        h1 {
+            color: var(--primary);
+            margin-top: 0;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        input, select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem;
+            width: 100%;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .log {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #1e293b;
+            color: #10b981;
+            border-radius: 6px;
+            font-family: monospace;
+            min-height: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h1>Painel Jotajá (MOCK)</h1>
+        <p>Use este painel para enviar pedidos de teste para o KDS.</p>
+
+        <div class="form-group">
+            <label>Nome do Cliente</label>
+            <input type="text" id="customer" value="João Silva" />
+        </div>
+
+        <div class="form-group">
+            <label>Combo Predefinido</label>
+            <select id="preset">
+                <option value="burger">2x Hambúrguer + 1x Frita + 2x Coca</option>
+                <option value="churrasco">3x Filé Mignon + 1x Polenta</option>
+                <option value="sobremesa">1x Pudim + 1x Sorvete</option>
+            </select>
+        </div>
+
+        <button onclick="sendOrder()">Criar Pedido Novo</button>
+
+        <div class="log" id="log">Aguardando ações...</div>
+    </div>
+
+    <script>
+        const presets = {
+            burger: [
+                { name: "Hambúrguer Artesanal" },
+                { name: "Hambúrguer Artesanal" },
+                { name: "Batata Frita Média" },
+                { name: "Coca-Cola Lata" },
+                { name: "Coca-Cola Lata" }
+            ],
+            churrasco: [
+                { name: "Filé Mignon 500g" },
+                { name: "Filé Mignon 500g" },
+                { name: "Filé Mignon 500g" },
+                { name: "Polenta Frita" }
+            ],
+            sobremesa: [
+                { name: "Pudim de Leite" },
+                { name: "Sorvete de Chocolate" }
+            ]
+        };
+
+        async function sendOrder() {
+            const customer = document.getElementById('customer').value;
+            const presetKey = document.getElementById('preset').value;
+            const items = presets[presetKey];
+            
+            const logEl = document.getElementById('log');
+
+            logEl.innerText = "Enviando pedido...";
+
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customer: customer,
+                        items: items
+                    })
+                });
+                
+                if (response.ok) {
+                    logEl.innerText = `Pedido enviado com sucesso às ${new Date().toLocaleTimeString()}! Olhe o KDS.`;
+                    
+                    // Embaralha o nome para o próximo
+                    const names = ["Maria Oliveira", "Carlos Santos", "Ana Paula", "Marcos Dias"];
+                    document.getElementById('customer').value = names[Math.floor(Math.random() * names.length)];
+                } else {
+                    logEl.innerText = "Erro ao enviar pedido.";
+                }
+            } catch (err) {
+                logEl.innerText = "Erro de conexão: " + err.message;
+            }
+        }
+    </script>
+</body>
+</html>

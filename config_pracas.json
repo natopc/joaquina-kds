@@ -1,0 +1,208 @@
+{
+  "pracas": [
+    "FOGÃO",
+    "CHAPA",
+    "FRITURA",
+    "BOQUETA"
+  ],
+  "pratos": [
+    {
+      "name": "Arroz à piamontese",
+      "pracas": [
+        "FOGÃO"
+      ]
+    },
+    {
+      "name": "Arroz de brócolis",
+      "pracas": [
+        "FOGÃO"
+      ]
+    },
+    {
+      "name": "Arroz de porco e camarão",
+      "pracas": [
+        "FOGÃO",
+        "CHAPA"
+      ]
+    },
+    {
+      "name": "Bolinho de arroz - dupla",
+      "pracas": [
+        "FRITURA"
+      ]
+    },
+    {
+      "name": "Bolinho de arroz - porção",
+      "pracas": [
+        "FRITURA"
+      ]
+    },
+    {
+      "name": "Brasileirinho",
+      "pracas": [
+        "FRITURA",
+        "FOGÃO"
+      ]
+    },
+    {
+      "name": "Carne seca da bisa",
+      "pracas": [
+        "FOGÃO",
+        "FRITURA"
+      ]
+    },
+    {
+      "name": "Farofa de ovos",
+      "pracas": [
+        "FOGÃO"
+      ]
+    },
+    {
+      "name": "Feijão",
+      "pracas": [
+        "BOQUETA"
+      ]
+    },
+    {
+      "name": "Feijoada Joaquina para 2",
+      "pracas": [
+        "FOGÃO",
+        "FRITURA"
+      ]
+    },
+    {
+      "name": "Filé do Zé",
+      "pracas": [
+        "FOGÃO",
+        "FRITURA"
+      ]
+    },
+    {
+      "name": "Filé Mignon - Proteína",
+      "pracas": [
+        "CHAPA"
+      ]
+    },
+    {
+      "name": "Frango - Proteína",
+      "pracas": [
+        "CHAPA"
+      ]
+    },
+    {
+      "name": "Frango com cebolas assadas",
+      "pracas": [
+        "CHAPA"
+      ]
+    },
+    {
+      "name": "Legumes ao chimichurri",
+      "pracas": [
+        "CHAPA",
+        "FOGÃO"
+      ]
+    },
+    {
+      "name": "Memórias do sertão",
+      "pracas": [
+        "FOGÃO"
+      ]
+    },
+    {
+      "name": "Mexido da Fazenda",
+      "pracas": [
+        "FOGÃO",
+        "CHAPA"
+      ]
+    },
+    {
+      "name": "Mignon ao alho",
+      "pracas": [
+        "FOGÃO",
+        "CHAPA"
+      ]
+    },
+    {
+      "name": "Milanesa de frango",
+      "pracas": [
+        "FOGÃO",
+        "FRITURA"
+      ]
+    },
+    {
+      "name": "Moqueca Joaquina",
+      "pracas": [
+        "FOGÃO"
+      ]
+    },
+    {
+      "name": "Pastel de queijo - dupla",
+      "pracas": [
+        "FRITURA"
+      ]
+    },
+    {
+      "name": "Pastel de queijo - porção",
+      "pracas": [
+        "FRITURA"
+      ]
+    },
+    {
+      "name": "Picadinho de mignon",
+      "pracas": [
+        "FOGÃO",
+        "CHAPA"
+      ]
+    },
+    {
+      "name": "Purê de batata",
+      "pracas": [
+        "BOQUETA"
+      ]
+    },
+    {
+      "name": "Sanduíche de costela desfiada",
+      "pracas": [
+        "CHAPA"
+      ]
+    },
+    {
+      "name": "Sanduíche de panceta",
+      "pracas": [
+        "CHAPA"
+      ]
+    },
+    {
+      "name": "Strogonoff de camarão",
+      "pracas": [
+        "FOGÃO"
+      ]
+    },
+    {
+      "name": "Strogonoff de mignon",
+      "pracas": [
+        "FOGÃO"
+      ]
+    },
+    {
+      "name": "Tilápia - Proteína",
+      "pracas": [
+        "CHAPA"
+      ]
+    },
+    {
+      "name": "Tilápia com arroz de coco",
+      "pracas": [
+        "CHAPA",
+        "FOGÃO"
+      ]
+    },
+    {
+      "name": "Tilápia Joaquina",
+      "pracas": [
+        "FOGÃO",
+        "CHAPA"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Joaquina Pro KDS</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Top Navigation / Header -->
+    <header class="top-nav">
+        <div class="brand">
+            <h1>JOAQUINA <span>KDS</span></h1>
+        </div>
+        
+        <div class="header-actions">
+            <button class="view-btn active" data-view="traditional">📋 Visão por Pedido</button>
+            <button class="view-btn" data-view="aggregated">🔥 Visão Agregada (Totais)</button>
+            <button class="view-btn" data-view="settings" id="btn-settings" title="Configurações">⚙️ Configurações</button>
+            <button class="view-btn" id="btn-theme" title="Alternar Tema Claro/Escuro">☀️</button>
+        </div>
+        
+        <div class="header-right">
+            <div class="clock" id="clock">00:00:00</div>
+        </div>
+    </header>    <!-- Praças / Stations Tabs -->
+    <nav class="stations-nav" id="stations-nav">
+        <!-- Injetado dinamicamente via app.js -->
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <!-- Traditional View (Cards) -->
+        <div id="traditional-view" class="view-container active">
+            <div class="orders-grid" id="orders-grid">
+                <!-- Cards de pedidos injetados via JS -->
+            </div>
+        </div>
+
+        <!-- Aggregated View (Items List) -->
+        <div id="aggregated-view" class="view-container">
+            <div class="aggregated-header">
+                <h2>Insumos Pendentes - Produção em Lote</h2>
+                <p>Modo FIFO: Dar baixa em quantidade conclui o item no pedido mais antigo.</p>
+            </div>
+            <div class="items-list" id="items-list">
+                <!-- Lista agregada injetada via JS -->
+            </div>
+        </div>
+
+        <!-- Settings View -->
+        <div id="settings-view" class="view-container">
+            <div class="settings-header">
+                <h2>Gerenciar Cardápio e Praças</h2>
+                <button id="btn-save-settings" class="btn-save">💾 Salvar Configurações</button>
+            </div>
+            <div class="settings-grid">
+                <!-- Unknown Items Section -->
+                <div class="settings-card unknown-card">
+                    <h3>⚠️ Insumos Desconhecidos (Sem Praça)</h3>
+                    <p>Estes itens vieram em pedidos mas não estão em nenhuma praça.</p>
+                    <div id="unknown-items-list" class="tags-list"></div>
+                </div>
+                
+                <!-- Stations Dynamic List -->
+                <div id="stations-settings-list" class="stations-settings-list">
+                    <!-- Cards de configuração das praças injetados via JS -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
