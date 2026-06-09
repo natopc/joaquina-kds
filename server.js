@@ -36,7 +36,7 @@ app.use((req, res, next) => {
   }
   
   // Permite que o robô (scraper.js) faça a inserção de pedidos localmente sem cookie
-  if (req.path === '/api/orders' && req.method === 'POST') {
+  if ((req.path === '/api/orders' || req.path === '/api/sync-orders') && req.method === 'POST') {
     return next();
   }
   
@@ -107,7 +107,7 @@ app.post('/api/config', (req, res) => {
 
 // Adiciona um novo pedido (Pode vir do Playwright ou do Mock Panel)
 app.post('/api/orders', (req, res) => {
-  const { id, customer, items } = req.body;
+  const { id, customer, items, createdAt } = req.body;
 
   const finalId = id || `PED-${Date.now().toString().slice(-4)}`;
 
@@ -130,11 +130,15 @@ app.post('/api/orders', (req, res) => {
       }
     }
 
+    const originalItemId = Math.random().toString(36).substring(7);
+
     return assignedPracas.map(praca => ({
+      ...item,
       name: item.name,
       praca: praca,
       completed: false,
-      id: Math.random().toString(36).substring(7) // ID único para a cópia deste item
+      id: Math.random().toString(36).substring(7),
+      originalItemId: originalItemId
     }));
   });
 
@@ -142,13 +146,70 @@ app.post('/api/orders', (req, res) => {
     id: finalId,
     customer: customer,
     items: formattedItems,
-    createdAt: new Date().toISOString(),
+    createdAt: createdAt || new Date().toISOString(),
     status: 'pending' // pending, completed
   };
 
   orders.push(newOrder);
   notifyClients();
   res.status(201).json({ success: true, order: newOrder });
+});
+
+// Sincroniza todos os pedidos ativos do Jotajá
+app.post('/api/sync-orders', (req, res) => {
+  const incomingOrders = req.body; // Array de pedidos do scraper
+  const incomingIds = incomingOrders.map(o => o.id);
+
+  // 1. Adiciona novos pedidos que ainda não estão no KDS
+  incomingOrders.forEach(incomingOrder => {
+    if (!orders.some(o => o.id === incomingOrder.id)) {
+      // Transforma os itens para o formato do KDS
+      const formattedItems = incomingOrder.items.flatMap(item => {
+        const itemNameLower = item.name.toLowerCase();
+        let assignedPracas = ['Geral'];
+
+        if (configPracas.pratos) {
+          const prato = configPracas.pratos.find(p => 
+            itemNameLower.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(itemNameLower)
+          );
+          if (prato && prato.pracas && prato.pracas.length > 0) {
+            assignedPracas = prato.pracas;
+          }
+        }
+
+        const originalItemId = Math.random().toString(36).substring(7);
+
+        return assignedPracas.map(praca => ({
+          ...item,
+          name: item.name,
+          praca: praca,
+          completed: false,
+          id: Math.random().toString(36).substring(7),
+          originalItemId: originalItemId
+        }));
+      });
+
+      orders.push({
+        id: incomingOrder.id,
+        customer: incomingOrder.customer,
+        items: formattedItems,
+        createdAt: incomingOrder.createdAt || new Date().toISOString(),
+        status: 'pending'
+      });
+    }
+  });
+
+  // 2. Remove (ou marca como completed) os pedidos que estavam no KDS mas sumiram do Jotajá
+  orders.forEach(order => {
+    if (order.status === 'pending' && !incomingIds.includes(order.id) && !order.id.startsWith('PED-')) {
+      // Pedidos com prefixo PED- são mocks locais, não removemos se não vieram do scraper.
+      // Caso contrário, se sumiu do Jotajá (foi pra Saiu para Entrega, etc), concluímos.
+      order.status = 'completed';
+    }
+  });
+
+  notifyClients();
+  res.status(200).json({ success: true, synced: incomingOrders.length });
 });
 
 // Rota para concluir um item de um pedido específico (Visão Tradicional)
@@ -215,4 +276,8 @@ const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor KDS rodando em http://localhost:${PORT}`);
   console.log(`👉 Painel Simulado: http://localhost:${PORT}/mock-panel.html`);
+  
+  // Inicia o robô scraper em paralelo
+  console.log('🤖 Iniciando o robô do Jotajá...');
+  require('./scraper.js');
 });

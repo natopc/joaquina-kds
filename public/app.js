@@ -221,12 +221,26 @@ function renderTraditional() {
     const grid = document.getElementById('orders-grid');
     grid.innerHTML = '';
     
-    // Apenas pedidos pendentes
-    const pendingOrders = state.orders.filter(o => o.status === 'pending');
+    // Apenas pedidos pendentes, invertendo para o mais recente aparecer primeiro
+    const pendingOrders = state.orders.filter(o => o.status === 'pending').reverse();
     
     pendingOrders.forEach(order => {
         // Filtra os itens desse pedido que pertencem à praça selecionada (ou todos se 'Geral')
-        const itemsToShow = order.items.filter(i => state.currentPraca === 'Geral' || i.praca === state.currentPraca);
+        let itemsToShow = order.items.filter(i => state.currentPraca === 'Geral' || i.praca === state.currentPraca);
+        
+        if (state.currentPraca === 'Geral') {
+            const grouped = {};
+            itemsToShow.forEach(i => {
+                const key = i.originalItemId || i.id;
+                if (!grouped[key]) {
+                    grouped[key] = { ...i, allIds: [i.id], allCompleted: i.completed };
+                } else {
+                    grouped[key].allIds.push(i.id);
+                    if (!i.completed) grouped[key].allCompleted = false;
+                }
+            });
+            itemsToShow = Object.values(grouped).map(g => ({ ...g, completed: g.allCompleted }));
+        }
         
         // Se este pedido não tiver itens para esta praça e não estivermos em "Geral", pula ele
         if (itemsToShow.length === 0 && state.currentPraca !== 'Geral') return;
@@ -255,11 +269,25 @@ function renderTraditional() {
         itemsToShow.forEach(item => {
             const itemEl = document.createElement('div');
             itemEl.className = `item-row ${item.completed ? 'done' : ''}`;
+            
+            const obsText = item.observacao || item.observation || item.obs || item.observacoes || item.notes || item.observações || '';
+            const obsHtml = obsText ? `<div class="item-obs" style="font-size: 0.85em; color: var(--warning); margin-top: 4px; font-weight: normal;">Obs: ${obsText}</div>` : '';
+            
+            itemEl.style.flexDirection = 'column';
+            itemEl.style.alignItems = 'flex-start';
+
             itemEl.innerHTML = `
                 <span class="item-name">${item.name}</span>
+                ${obsHtml}
             `;
             if (!item.completed) {
-                itemEl.addEventListener('click', () => completeItem(order.id, item.id));
+                itemEl.addEventListener('click', () => {
+                    if (item.allIds) {
+                        item.allIds.forEach(id => completeItem(order.id, id));
+                    } else {
+                        completeItem(order.id, item.id);
+                    }
+                });
             }
             itemsContainer.appendChild(itemEl);
         });

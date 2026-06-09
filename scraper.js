@@ -30,11 +30,14 @@ async function startScraper() {
     await page.fill('input[formcontrolname="senha"]', 'joaquina123');
     await page.click('button.login-form-button');
     
-    console.log("Aguardando login manual ou automático...");
+    console.log("Aguardando login...");
     // Esperar um pouco para o login processar
     await page.waitForTimeout(5000);
 
-    console.log("Login realizado com sucesso! Monitorando pedidos...");
+    console.log("Acessando a página de acompanhamento...");
+    await page.goto('https://painel.jotaja.com/#/relatorioAcompanhamento/false', { waitUntil: 'networkidle' });
+
+    console.log("Monitorando pedidos com status 'Em produção'...");
 
     let loops = 0;
     // Loop infinito de monitoramento
@@ -47,63 +50,144 @@ async function startScraper() {
         loops = 0;
       }
 
-      // 2. Extrai os pedidos da tela usando a função evaluate do Playwright
-      const novosPedidos = await page.evaluate(() => {
-        const pedidosEncontrados = [];
-        
-        const cards = document.querySelectorAll('.pedido.ant-card');
-        cards.forEach(card => {
-          // Extrair o nome do cliente
-          let customer = "Desconhecido";
-          const spans = Array.from(card.querySelectorAll('span'));
-          const nomeSpan = spans.find(s => s.innerText && s.innerText.includes('Nome:'));
-          if (nomeSpan) {
-            customer = nomeSpan.innerText.replace('Nome:', '').trim();
-          }
-
-          // Extrair os itens
-          const items = [];
-          const divs = Array.from(card.querySelectorAll('div'));
-          // Pelos prints, o nome do item fica em uma div com font-weight 700 e cor black
-          const itemDivs = divs.filter(d => d.style.fontWeight === '700' && d.style.color === 'black');
-          
-          itemDivs.forEach(itemEl => {
-            const name = itemEl.innerText.trim();
-            if (name) {
-              items.push({ name });
-            }
-          });
-
-          // Tentar extrair o ID do pedido. Se não achar, gerar um ID fixo baseado no cliente e itens
-          // para não repetir o mesmo pedido toda vez que o robô ler a tela!
-          let idText = customer + items.map(i=>i.name).join('');
-          let hash = 0;
-          for (let i = 0; i < idText.length; i++) hash = Math.imul(31, hash) + idText.charCodeAt(i) | 0;
-          let id = "PED-" + Math.abs(hash).toString().substring(0, 5);
-
-          // Só envia se encontrou algum item válido
-          if (items.length > 0) {
-            pedidosEncontrados.push({ id, customer, items });
-          }
-        });
-
-        return pedidosEncontrados;
-      });
-
-      // 3. Envia os pedidos encontrados para o servidor KDS local
-      if (novosPedidos && novosPedidos.length > 0) {
-        for (const pedido of novosPedidos) {
+      // 2. Extrai os pedidos iterando linha por linha com Playwright
+      const rowsCount = await page.locator('tr.ant-table-row').count();
+      console.log(`Verificando ${rowsCount} linhas na tabela...`);
+      
+      const novosPedidos = [];
+      for (let i = 0; i < rowsCount; i++) {
           try {
-            // Adicionado timeout de 5 segundos para não travar o loop se o servidor KDS demorar
-            await axios.post('http://localhost:3000/api/orders', pedido, { timeout: 5000 });
-            console.log(`Pedido ${pedido.id} importado com sucesso!`);
-          } catch (err) {
-            console.error(`Erro ao salvar pedido no KDS local: ${err.message}`);
+              const tr = page.locator('tr.ant-table-row').nth(i);
+              const tds = tr.locator('td');
+              if (await tds.count() < 5) continue;
+              
+              const statusText = await tds.nth(4).innerText();
+              const status = statusText.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+              
+              if (status.includes('em producao')) {
+                  console.log(`Processando pedido da linha ${i}...`);
+                  // Clica no botão da primeira coluna
+                  const btn = tds.nth(0).locator('button');
+                  if (await btn.count() > 0) {
+                      console.log('Clicando no botão de lupa...');
+                      // Usa JS puro para clicar e evitar bloqueios
+                      await btn.evaluate(node => node.click());
+                  } else {
+                      console.log('Clicando na linha da tabela...');
+                      await tr.evaluate(node => node.click());
+                  }
+                  
+                  console.log('Aguardando a modal abrir...');
+                  // Aguarda a modal abrir
+                  await page.waitForTimeout(2000); 
+                  console.log('Extraindo dados...');
+
+                  // Extrai os dados do painel direito lendo os textos
+                  const pedido = await page.evaluate(() => {
+                      let id = '';
+                      let customer = 'Desconhecido';
+                      let createdAt = null;
+                      const items = [];
+                      
+                      let lines = document.body.innerText.split('\n').map(s => s.trim()).filter(s => s);
+                      
+                      // Encontrar ID e Cliente e Data/Hora
+                      for (const line of lines) {
+                          if (line.includes('Pedido #')) {
+                              id = line.match(/Pedido #(\d+)/)?.[1] || id;
+                          }
+                          if (line.startsWith('Nome:')) {
+                              customer = line.replace('Nome:', '').split('Telefone:')[0].split('ID:')[0].trim();
+                          }
+                          if (line.includes('Data:') && line.includes('Hora:')) {
+                              const dataMatch = line.match(/Data:\s*(\d{2})\/(\d{2})\/(\d{4})/);
+                              const horaMatch = line.match(/Hora:\s*(\d{2}):(\d{2}):(\d{2})/);
+                              if (dataMatch && horaMatch) {
+                                  createdAt = `${dataMatch[3]}-${dataMatch[2]}-${dataMatch[1]}T${horaMatch[1]}:${horaMatch[2]}:${horaMatch[3]}-03:00`;
+                              }
+                          }
+                      }
+                      
+                      // Encontrar os Itens abaixo de "RESUMO DO PEDIDO" ou "Resumo"
+                      let resumoIdx = lines.findIndex(l => l.toUpperCase().includes('RESUMO DO PEDIDO') || l.toUpperCase() === 'RESUMO');
+                      if (resumoIdx !== -1) {
+                         for (let i = resumoIdx + 1; i < lines.length; i++) {
+                            const line = lines[i];
+                            if (line.startsWith('Qtd:')) {
+                               let nextLineIdx = i + 1;
+                               while (nextLineIdx < lines.length && (
+                                   lines[nextLineIdx].startsWith('Valor:') || 
+                                   lines[nextLineIdx].startsWith('R$') || 
+                                   lines[nextLineIdx].trim() === ''
+                               )) {
+                                  nextLineIdx++;
+                               }
+                               const itemName = lines[nextLineIdx];
+                               if (itemName && !itemName.startsWith('Qtd:') && !itemName.toUpperCase().includes('TOTAL')) {
+                                  let observacao = '';
+                                  let obsLineIdx = nextLineIdx + 1;
+                                  while (obsLineIdx < lines.length && (lines[obsLineIdx].startsWith('-') || lines[obsLineIdx].toLowerCase().includes('obs'))) {
+                                     observacao += lines[obsLineIdx].trim() + ' ';
+                                     obsLineIdx++;
+                                  }
+                                  items.push({ name: itemName, observacao: observacao.trim() });
+                                  i = obsLineIdx - 1; 
+                               }
+                            }
+                            if (line.toUpperCase().includes('TOTAL')) {
+                               break;
+                            }
+                         }
+                      }
+                      
+                      // O fechamento será feito pelo Playwright, logo abaixo
+                      if (!id) {
+                          id = "PED-" + Math.floor(Math.random()*10000);
+                      }
+                      if (items.length > 0) {
+                          return { id, customer, createdAt, items };
+                      }
+                      return null;
+                  });
+                  
+                  console.log('Tentando fechar a modal...');
+                  // Força o fechamento da modal usando evaluate para ter 100% de certeza que não será bloqueado
+                  await page.evaluate(() => {
+                      const closeBtn = document.querySelector('.ant-modal-close');
+                      if (closeBtn) closeBtn.click();
+                  });
+                  console.log('Fechado.');
+                  
+                  if (pedido) {
+                      console.log("Pedido extraído:\n", JSON.stringify(pedido, null, 2));
+                      novosPedidos.push(pedido);
+                  } else {
+                      console.log("A linha foi clicada, mas o painel direito não retornou os dados (sem RESUMO DO PEDIDO?).");
+                  }
+                  
+                  // Espera um pouco para a modal fechar
+                  await page.waitForTimeout(1000);
+              }
+          } catch(e) {
+              console.error("Erro ao processar linha " + i + ":", e.message);
           }
-        }
       }
 
-      // Aguarda 10 segundos antes da próxima checagem
+      // 3. Envia os pedidos encontrados para o servidor KDS local
+      if (novosPedidos.length > 0) {
+          try {
+              await fetch('http://localhost:3000/api/sync-orders', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(novosPedidos)
+              });
+              console.log(`${novosPedidos.length} pedidos sincronizados com sucesso!`);
+          } catch (err) {
+              console.error("Erro ao enviar para API local:", err);
+          }
+      }
+
+      console.log("Aguardando 10 segundos para a próxima verificação...");
       await page.waitForTimeout(10000);
     }
   } catch (error) {

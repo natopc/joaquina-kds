@@ -1,0 +1,22 @@
+[
+  {
+    "id": "PED-41059",
+    "customer": "José Telmo",
+    "items": [
+      {
+        "name": "Bolinho de arroz - porção",
+        "praca": "FRITURA",
+        "completed": false,
+        "id": "2n2dup"
+      },
+      {
+        "name": "Pastel de queijo - porção",
+        "praca": "FRITURA",
+        "completed": false,
+        "id": "sfe8y"
+      }
+    ],
+    "createdAt": "2026-06-07T23:16:02.240Z",
+    "status": "pending"
+  }
+]
