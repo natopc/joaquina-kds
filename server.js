@@ -234,6 +234,28 @@ app.post('/api/complete-item', (req, res) => {
   res.status(404).json({ error: 'Pedido ou item não encontrado' });
 });
 
+// Rota para desmarcar (voltar atrás) um item concluído
+app.post('/api/uncomplete-item', (req, res) => {
+  const { orderId, itemId } = req.body;
+  
+  const order = orders.find(o => o.id === orderId);
+  if (order) {
+    const item = order.items.find(i => i.id === itemId);
+    if (item) {
+      item.completed = false;
+      
+      // Se o pedido estava concluído, volta para pendente
+      if (order.status === 'completed') {
+        order.status = 'pending';
+      }
+      
+      notifyClients();
+      return res.json({ success: true });
+    }
+  }
+  res.status(404).json({ error: 'Pedido ou item não encontrado' });
+});
+
 // Rota para concluir 1 unidade de um item específico via FIFO (Visão Consolidada/Quantidade)
 app.post('/api/complete-fifo', (req, res) => {
   const { itemName, praca } = req.body;

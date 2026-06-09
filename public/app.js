@@ -1,8 +1,8 @@
 // Estado Global
 let state = {
     pracas: [],
-    currentPraca: 'Geral',
-    currentView: 'traditional', // 'traditional' | 'aggregated' | 'settings'
+    currentPraca: localStorage.getItem('kds_currentPraca') || 'Geral',
+    currentView: localStorage.getItem('kds_currentView') || 'traditional', // 'traditional' | 'aggregated' | 'settings'
     orders: [],
     config: {} // Armazena a configuração bruta das praças
 };
@@ -102,6 +102,7 @@ function setupViewToggles() {
             e.target.classList.add('active');
             
             state.currentView = e.target.dataset.view || 'settings';
+            localStorage.setItem('kds_currentView', state.currentView);
             
             document.querySelectorAll('.view-container').forEach(c => c.classList.remove('active'));
             document.getElementById(`${state.currentView}-view`).classList.add('active');
@@ -113,6 +114,15 @@ function setupViewToggles() {
             }
         });
     });
+
+    // Restaurar estado visual inicial
+    allBtns.forEach(b => b.classList.remove('active'));
+    const activeBtn = Array.from(allBtns).find(b => (b.dataset.view || 'settings') === state.currentView);
+    if (activeBtn) activeBtn.classList.add('active');
+    
+    document.querySelectorAll('.view-container').forEach(c => c.classList.remove('active'));
+    const activeContainer = document.getElementById(`${state.currentView}-view`);
+    if (activeContainer) activeContainer.classList.add('active');
 
     document.getElementById('btn-save-settings').addEventListener('click', saveSettings);
 }
@@ -135,12 +145,19 @@ function renderStationsNav() {
     const nav = document.getElementById('stations-nav');
     nav.innerHTML = '';
     
+    // Se a praça salva não existir mais nas configs, volta para Geral
+    if (!state.pracas.includes(state.currentPraca)) {
+        state.currentPraca = 'Geral';
+        localStorage.setItem('kds_currentPraca', 'Geral');
+    }
+    
     state.pracas.forEach(praca => {
         const btn = document.createElement('button');
         btn.className = `station-btn ${praca === state.currentPraca ? 'active' : ''}`;
         btn.innerText = praca;
         btn.addEventListener('click', () => {
             state.currentPraca = praca;
+            localStorage.setItem('kds_currentPraca', state.currentPraca);
             renderStationsNav();
             renderCurrentView();
         });
@@ -191,6 +208,15 @@ async function completeItem(orderId, itemId) {
     });
 }
 
+// Desmarca um item (volta a ser pendente)
+async function uncompleteItem(orderId, itemId) {
+    await fetch('/api/uncomplete-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, itemId })
+    });
+}
+
 // Completa 1 unidade de um insumo específico via FIFO
 async function completeFifo(itemName) {
     // Para dar baixa, precisamos saber de qual praça é (pegamos do estado atual, se for "Geral" pegaremos a primeira correspondência no servidor)
@@ -221,8 +247,10 @@ function renderTraditional() {
     const grid = document.getElementById('orders-grid');
     grid.innerHTML = '';
     
-    // Apenas pedidos pendentes, invertendo para o mais recente aparecer primeiro
-    const pendingOrders = state.orders.filter(o => o.status === 'pending').reverse();
+    // Apenas pedidos pendentes, ordenados por data de criação (mais recente primeiro)
+    const pendingOrders = state.orders
+        .filter(o => o.status === 'pending')
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
     pendingOrders.forEach(order => {
         // Filtra os itens desse pedido que pertencem à praça selecionada (ou todos se 'Geral')
@@ -280,15 +308,23 @@ function renderTraditional() {
                 <span class="item-name">${item.name}</span>
                 ${obsHtml}
             `;
-            if (!item.completed) {
-                itemEl.addEventListener('click', () => {
+            
+            itemEl.addEventListener('click', () => {
+                if (item.completed) {
+                    if (item.allIds) {
+                        item.allIds.forEach(id => uncompleteItem(order.id, id));
+                    } else {
+                        uncompleteItem(order.id, item.id);
+                    }
+                } else {
                     if (item.allIds) {
                         item.allIds.forEach(id => completeItem(order.id, id));
                     } else {
                         completeItem(order.id, item.id);
                     }
-                });
-            }
+                }
+            });
+            
             itemsContainer.appendChild(itemEl);
         });
         
@@ -305,9 +341,19 @@ function renderAggregated() {
     const agg = {};
     
     state.orders.filter(o => o.status === 'pending').forEach(order => {
+        const processedOriginalIds = new Set();
+        
         order.items.forEach(item => {
             // Conta apenas se não estiver completo e pertencer à praça selecionada
             if (!item.completed && (state.currentPraca === 'Geral' || item.praca === state.currentPraca)) {
+                
+                // Evita contar o mesmo item múltiplas vezes na aba 'Geral' se ele foi quebrado em várias praças
+                if (state.currentPraca === 'Geral') {
+                    const key = item.originalItemId || item.id;
+                    if (processedOriginalIds.has(key)) return;
+                    processedOriginalIds.add(key);
+                }
+                
                 if (!agg[item.name]) agg[item.name] = 0;
                 agg[item.name]++;
             }

@@ -55,6 +55,8 @@ async function startScraper() {
       console.log(`Verificando ${rowsCount} linhas na tabela...`);
       
       const novosPedidos = [];
+      let expectedPedidos = 0;
+      
       for (let i = 0; i < rowsCount; i++) {
           try {
               const tr = page.locator('tr.ant-table-row').nth(i);
@@ -65,6 +67,7 @@ async function startScraper() {
               const status = statusText.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
               
               if (status.includes('em producao')) {
+                  expectedPedidos++;
                   console.log(`Processando pedido da linha ${i}...`);
                   // Clica no botão da primeira coluna
                   const btn = tds.nth(0).locator('button');
@@ -174,7 +177,7 @@ async function startScraper() {
       }
 
       // 3. Envia os pedidos encontrados para o servidor KDS local
-      if (novosPedidos.length > 0) {
+      if (novosPedidos.length === expectedPedidos) {
           try {
               await fetch('http://localhost:3000/api/sync-orders', {
                   method: 'POST',
@@ -185,6 +188,8 @@ async function startScraper() {
           } catch (err) {
               console.error("Erro ao enviar para API local:", err);
           }
+      } else {
+          console.log(`Aviso: Encontrados ${expectedPedidos} pedidos na tela, mas apenas ${novosPedidos.length} foram extraídos corretamente. Pulando sync para evitar perda de dados.`);
       }
 
       console.log("Aguardando 10 segundos para a próxima verificação...");

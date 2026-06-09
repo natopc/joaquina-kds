@@ -224,7 +224,6 @@ body {
     text-decoration: line-through;
     opacity: 0.5;
     background: transparent;
-    pointer-events: none;
 }
 
 .item-name {

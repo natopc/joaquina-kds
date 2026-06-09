@@ -3,7 +3,8 @@
     "FOGÃO",
     "CHAPA",
     "FRITURA",
-    "BOQUETA"
+    "BOQUETA",
+    "DESPACHO"
   ],
   "pratos": [
     {
@@ -52,6 +53,12 @@
       ]
     },
     {
+      "name": "Coca-Cola",
+      "pracas": [
+        "DESPACHO"
+      ]
+    },
+    {
       "name": "Farofa de ovos",
       "pracas": [
         "FOGÃO"
@@ -93,6 +100,12 @@
       "name": "Frango com cebolas assadas",
       "pracas": [
         "CHAPA"
+      ]
+    },
+    {
+      "name": "Guaraná Antarctica Zero",
+      "pracas": [
+        "DESPACHO"
       ]
     },
     {
