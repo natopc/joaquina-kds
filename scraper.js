@@ -192,8 +192,16 @@ async function startScraper() {
           console.log(`Aviso: Encontrados ${expectedPedidos} pedidos na tela, mas apenas ${novosPedidos.length} foram extraídos corretamente. Pulando sync para evitar perda de dados.`);
       }
 
-      console.log("Aguardando 10 segundos para a próxima verificação...");
-      await page.waitForTimeout(10000);
+      let waitTime = 10000;
+      try {
+          const cfgRes = await axios.get('http://localhost:3000/api/config');
+          if (cfgRes.data && cfgRes.data.scraperInterval) {
+              waitTime = cfgRes.data.scraperInterval * 1000;
+          }
+      } catch(e) {}
+      
+      console.log(`Aguardando ${waitTime / 1000} segundos para a próxima verificação...`);
+      await page.waitForTimeout(waitTime);
     }
   } catch (error) {
     console.error("Erro Crítico no Scraper. Ele será reiniciado em 10 segundos:", error);

@@ -12,8 +12,13 @@ app.use(cookieParser());
 // Endpoint de Login
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
-  if (username === 'delivery' && password === 'joaq123') {
-    res.cookie('kds_auth', 'authenticated', { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
+  const users = loadUsers();
+  const user = users.find(u => u.username === username && u.password === password);
+  
+  if (user) {
+    const sessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    sessions[sessionId] = username;
+    res.cookie('kds_auth', sessionId, { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
     res.json({ success: true });
   } else {
     res.status(401).json({ success: false, error: 'Credenciais inválidas' });
@@ -41,7 +46,8 @@ app.use((req, res, next) => {
   }
   
   // Verifica o cookie
-  if (req.cookies.kds_auth === 'authenticated') {
+  if (req.cookies.kds_auth && sessions[req.cookies.kds_auth]) {
+    req.user = sessions[req.cookies.kds_auth];
     return next();
   }
   
@@ -58,6 +64,26 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Banco de dados em memória
 let orders = [];
 let clients = []; // SSE clients
+let currentBatchColorIndex = 0; // Para as cores de lote
+let sessions = {}; // sessionId -> username
+
+// Funções de manipulação de Usuários
+const USERS_FILE = path.join(__dirname, 'users.json');
+function loadUsers() {
+    try {
+        if (!fs.existsSync(USERS_FILE)) {
+            const defaultUsers = [{ username: 'delivery', password: 'joaq123', isAdmin: true, allowedViews: ['traditional', 'aggregated', 'settings', 'admin'], allowedPracas: ['Geral'] }];
+            fs.writeFileSync(USERS_FILE, JSON.stringify(defaultUsers, null, 2), 'utf8');
+            return defaultUsers;
+        }
+        return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    } catch (e) {
+        return [];
+    }
+}
+function saveUsers(usersList) {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(usersList, null, 2), 'utf8');
+}
 
 // Carrega as configurações de praças
 let configPracas = JSON.parse(fs.readFileSync(path.join(__dirname, 'config_pracas.json'), 'utf8'));
@@ -90,7 +116,7 @@ app.get('/api/stream', (req, res) => {
 
 // Retorna a lista de praças e suas palavras-chave (Para a Tela de Config)
 app.get('/api/config', (req, res) => {
-  res.json(configPracas);
+  res.json({ ...configPracas, scraperInterval: configPracas.scraperInterval || 10 });
 });
 
 // Salva as novas configurações de praças
@@ -103,6 +129,38 @@ app.post('/api/config', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Erro ao salvar configurações' });
   }
+});
+
+// Rota para o Frontend buscar as próprias permissões
+app.get('/api/me', (req, res) => {
+    if (!req.user) return res.status(401).json({error: 'Não logado'});
+    const users = loadUsers();
+    const user = users.find(u => u.username === req.user);
+    if (!user) return res.status(401).json({error: 'Usuário não encontrado'});
+    
+    res.json({
+        username: user.username,
+        isAdmin: user.isAdmin,
+        allowedViews: user.allowedViews || [],
+        allowedPracas: user.allowedPracas || ['Geral']
+    });
+});
+
+// Rotas de Gestão de Usuários (Apenas Admin)
+app.get('/api/users', (req, res) => {
+    const users = loadUsers();
+    const currentUser = users.find(u => u.username === req.user);
+    if (!currentUser || !currentUser.isAdmin) return res.status(403).json({error: 'Acesso negado'});
+    res.json(users);
+});
+
+app.post('/api/users', (req, res) => {
+    const users = loadUsers();
+    const currentUser = users.find(u => u.username === req.user);
+    if (!currentUser || !currentUser.isAdmin) return res.status(403).json({error: 'Acesso negado'});
+    
+    saveUsers(req.body);
+    res.json({success: true});
 });
 
 // Adiciona um novo pedido (Pode vir do Playwright ou do Mock Panel)
@@ -132,14 +190,19 @@ app.post('/api/orders', (req, res) => {
 
     const originalItemId = Math.random().toString(36).substring(7);
 
-    return assignedPracas.map(praca => ({
-      ...item,
-      name: item.name,
-      praca: praca,
-      completed: false,
-      id: Math.random().toString(36).substring(7),
-      originalItemId: originalItemId
-    }));
+    return assignedPracas.map(praca => {
+      const pracaName = typeof praca === 'string' ? praca : praca.name;
+      const delay = typeof praca === 'string' ? 0 : (praca.delay || 0);
+      return {
+        ...item,
+        name: item.name,
+        praca: pracaName,
+        delay: delay,
+        completed: false,
+        id: Math.random().toString(36).substring(7),
+        originalItemId: originalItemId
+      };
+    });
   });
 
   const newOrder = {
@@ -147,10 +210,12 @@ app.post('/api/orders', (req, res) => {
     customer: customer,
     items: formattedItems,
     createdAt: createdAt || new Date().toISOString(),
-    status: 'pending' // pending, completed
+    status: 'pending', // pending, completed
+    batchColorIndex: currentBatchColorIndex
   };
 
   orders.push(newOrder);
+  currentBatchColorIndex = (currentBatchColorIndex + 1) % 5; // Rotaciona para mock panel
   notifyClients();
   res.status(201).json({ success: true, order: newOrder });
 });
@@ -159,10 +224,14 @@ app.post('/api/orders', (req, res) => {
 app.post('/api/sync-orders', (req, res) => {
   const incomingOrders = req.body; // Array de pedidos do scraper
   const incomingIds = incomingOrders.map(o => o.id);
+  let hasNewOrders = false;
 
   // 1. Adiciona novos pedidos que ainda não estão no KDS
   incomingOrders.forEach(incomingOrder => {
-    if (!orders.some(o => o.id === incomingOrder.id)) {
+    const existingOrder = orders.find(o => o.id === incomingOrder.id);
+    
+    if (!existingOrder) {
+      hasNewOrders = true;
       // Transforma os itens para o formato do KDS
       const formattedItems = incomingOrder.items.flatMap(item => {
         const itemNameLower = item.name.toLowerCase();
@@ -179,14 +248,19 @@ app.post('/api/sync-orders', (req, res) => {
 
         const originalItemId = Math.random().toString(36).substring(7);
 
-        return assignedPracas.map(praca => ({
-          ...item,
-          name: item.name,
-          praca: praca,
-          completed: false,
-          id: Math.random().toString(36).substring(7),
-          originalItemId: originalItemId
-        }));
+        return assignedPracas.map(praca => {
+          const pracaName = typeof praca === 'string' ? praca : praca.name;
+          const delay = typeof praca === 'string' ? 0 : (praca.delay || 0);
+          return {
+            ...item,
+            name: item.name,
+            praca: pracaName,
+            delay: delay,
+            completed: false,
+            id: Math.random().toString(36).substring(7),
+            originalItemId: originalItemId
+          };
+        });
       });
 
       orders.push({
@@ -194,10 +268,20 @@ app.post('/api/sync-orders', (req, res) => {
         customer: incomingOrder.customer,
         items: formattedItems,
         createdAt: incomingOrder.createdAt || new Date().toISOString(),
-        status: 'pending'
+        status: 'pending',
+        batchColorIndex: currentBatchColorIndex
       });
+    } else if (existingOrder.status === 'completed') {
+      // O pedido já existia mas estava concluído. Se ele veio do Jotajá novamente (em produção), reativamos!
+      existingOrder.status = 'pending';
+      existingOrder.items.forEach(i => i.completed = false);
+      hasNewOrders = true; // Para disparar notificação
     }
   });
+
+  if (hasNewOrders) {
+    currentBatchColorIndex = (currentBatchColorIndex + 1) % 5;
+  }
 
   // 2. Remove (ou marca como completed) os pedidos que estavam no KDS mas sumiram do Jotajá
   orders.forEach(order => {

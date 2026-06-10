@@ -8,6 +8,18 @@
   ],
   "pratos": [
     {
+      "name": "Água com gás",
+      "pracas": [
+        "DESPACHO"
+      ]
+    },
+    {
+      "name": "Água sem gás",
+      "pracas": [
+        "DESPACHO"
+      ]
+    },
+    {
       "name": "Arroz à piamontese",
       "pracas": [
         "FOGÃO"
@@ -217,5 +229,6 @@
         "CHAPA"
       ]
     }
-  ]
+  ],
+  "scraperInterval": 10
 }

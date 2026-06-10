@@ -1,0 +1,28 @@
+[
+  {
+    "username": "delivery",
+    "password": "joaq123",
+    "isAdmin": true,
+    "allowedViews": [
+      "traditional",
+      "aggregated",
+      "settings",
+      "admin"
+    ],
+    "allowedPracas": [
+      "Geral"
+    ]
+  },
+  {
+    "username": "cozinha",
+    "password": "joaq123",
+    "isAdmin": false,
+    "allowedViews": [
+      "traditional",
+      "aggregated"
+    ],
+    "allowedPracas": [
+      "Geral"
+    ]
+  }
+]

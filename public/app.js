@@ -1,10 +1,10 @@
 // Estado Global
 let state = {
-    pracas: [],
+    currentView: localStorage.getItem('kds_currentView') || 'traditional',
     currentPraca: localStorage.getItem('kds_currentPraca') || 'Geral',
-    currentView: localStorage.getItem('kds_currentView') || 'traditional', // 'traditional' | 'aggregated' | 'settings'
     orders: [],
-    config: {} // Armazena a configuração bruta das praças
+    pracas: [], // [{ name: "Chapa", keywords: ["burguer", "x-bacon"] }]
+    user: null
 };
 
 // Gerador de Som Beep (AudioContext)
@@ -29,6 +29,108 @@ function playBeep() {
     oscillator.start();
     oscillator.stop(audioCtx.currentTime + 0.3);
 }
+
+// ====================
+// ADMIN LOGIC
+// ====================
+let adminUsers = [];
+async function renderAdmin() {
+    if (!state.user || !state.user.isAdmin) return;
+    try {
+        const [usersRes, configRes] = await Promise.all([
+            fetch('/api/users'),
+            fetch('/api/config')
+        ]);
+        adminUsers = await usersRes.json();
+        const config = await configRes.json();
+        
+        document.getElementById('input-scraper-interval').value = config.scraperInterval || 10;
+        
+        const list = document.getElementById('users-settings-list');
+        list.innerHTML = `
+            <table class="settings-table" style="width:100%; text-align:left;">
+                <thead><tr><th>Usuário</th><th>Senha</th><th>Admin?</th><th>Views Permitidas</th><th>Praças Permitidas</th><th>Ações</th></tr></thead>
+                <tbody id="users-tbody"></tbody>
+            </table>
+            <button class="btn-add-station" onclick="addUserRow()">+ Adicionar Usuário</button>
+            <button class="btn-save-station" onclick="saveUsers()" style="margin-top:1rem; background:var(--brand); color:white; padding:0.5rem; border-radius:4px; border:none; cursor:pointer;">💾 Salvar Usuários</button>
+        `;
+        renderUsersTable();
+    } catch(e) { console.error(e); }
+}
+
+window.renderUsersTable = function() {
+    const tbody = document.getElementById('users-tbody');
+    tbody.innerHTML = '';
+    
+    const availableViews = [
+        { id: 'traditional', label: 'Visão por Pedido' },
+        { id: 'aggregated', label: 'Visão Agregada' },
+        { id: 'settings', label: 'Cardápio' },
+        { id: 'admin', label: 'Sistema' }
+    ];
+
+    adminUsers.forEach((u, i) => {
+        let viewsHTML = availableViews.map(v => {
+            const isChecked = (u.allowedViews || []).includes(v.id) ? 'checked' : '';
+            return `<label style="display:block; font-size:0.85rem; margin-bottom:4px;"><input type="checkbox" ${isChecked} onchange="toggleUserArray(${i}, 'allowedViews', '${v.id}', this.checked)"> ${v.label}</label>`;
+        }).join('');
+
+        let pracasHTML = state.pracas.map(p => {
+            const isChecked = (u.allowedPracas || []).includes(p.name) ? 'checked' : '';
+            return `<label style="display:block; font-size:0.85rem; margin-bottom:4px;"><input type="checkbox" ${isChecked} onchange="toggleUserArray(${i}, 'allowedPracas', '${p.name}', this.checked)"> ${p.name}</label>`;
+        }).join('');
+
+        tbody.innerHTML += `
+            <tr style="vertical-align: top;">
+                <td><input type="text" value="${u.username}" onchange="adminUsers[${i}].username=this.value" style="width: 100%;" /></td>
+                <td><input type="text" value="${u.password}" onchange="adminUsers[${i}].password=this.value" style="width: 100%;" /></td>
+                <td style="text-align: center;"><input type="checkbox" ${u.isAdmin?'checked':''} onchange="adminUsers[${i}].isAdmin=this.checked" style="transform: scale(1.5); margin-top: 5px;" /></td>
+                <td><div style="max-height: 120px; overflow-y: auto; background: var(--bg); padding: 8px; border-radius: 4px; border: 1px solid var(--border);">${viewsHTML}</div></td>
+                <td><div style="max-height: 120px; overflow-y: auto; background: var(--bg); padding: 8px; border-radius: 4px; border: 1px solid var(--border);">${pracasHTML}</div></td>
+                <td style="text-align: center;"><button onclick="adminUsers.splice(${i}, 1); renderUsersTable();" style="color:var(--danger); border:none; background:none; cursor:pointer; font-weight: bold; margin-top: 5px;">Excluir</button></td>
+            </tr>
+        `;
+    });
+}
+
+window.toggleUserArray = function(userIndex, arrayName, value, isAdding) {
+    if (!adminUsers[userIndex][arrayName]) adminUsers[userIndex][arrayName] = [];
+    if (isAdding) {
+        if (!adminUsers[userIndex][arrayName].includes(value)) {
+            adminUsers[userIndex][arrayName].push(value);
+        }
+    } else {
+        adminUsers[userIndex][arrayName] = adminUsers[userIndex][arrayName].filter(v => v !== value);
+    }
+}
+
+window.addUserRow = function() {
+    adminUsers.push({username: 'novo', password: '123', isAdmin: false, allowedViews: ['traditional'], allowedPracas: ['Geral']});
+    renderUsersTable();
+}
+
+window.saveUsers = async function() {
+    await fetch('/api/users', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(adminUsers)
+    });
+    alert('Usuários salvos com sucesso!');
+}
+
+document.getElementById('btn-save-interval').addEventListener('click', async () => {
+    const interval = parseInt(document.getElementById('input-scraper-interval').value) || 10;
+    const configRes = await fetch('/api/config');
+    const config = await configRes.json();
+    config.scraperInterval = interval;
+    await fetch('/api/config', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(config)
+    });
+    alert('Velocidade do robô salva com sucesso!');
+});
 
 // Relógio do Cabeçalho
 function updateClock() {
@@ -58,6 +160,35 @@ function getElapsedTime(isoString) {
 
 // Iniciar a Aplicação
 async function init() {
+    try {
+        const meRes = await fetch('/api/me');
+        if (!meRes.ok) {
+            window.location.href = '/login.html';
+            return;
+        }
+        state.user = await meRes.json();
+    } catch(e) {
+        window.location.href = '/login.html';
+        return;
+    }
+
+    // Hide unauthorized views
+    const allViewBtns = document.querySelectorAll('.view-btn[data-view]');
+    allViewBtns.forEach(btn => {
+        const view = btn.dataset.view;
+        if (!state.user.isAdmin && !state.user.allowedViews.includes(view)) {
+            btn.style.display = 'none';
+        }
+    });
+
+    if (state.user.isAdmin) {
+        document.getElementById('btn-admin').style.display = 'inline-block';
+    }
+
+    if (!state.user.isAdmin && !state.user.allowedViews.includes(state.currentView) && state.user.allowedViews.length > 0) {
+        state.currentView = state.user.allowedViews[0];
+    }
+
     setupViewToggles();
     // Setup do botão de tema
     const btnTheme = document.getElementById('btn-theme');
@@ -70,6 +201,19 @@ async function init() {
         const isLight = document.body.classList.contains('light-mode');
         btnTheme.innerText = isLight ? '🌙' : '☀️';
         localStorage.setItem('kds_theme', isLight ? 'light' : 'dark');
+    });
+
+    // Lógica de Tela Cheia
+    document.getElementById('btn-fullscreen').addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.log(`Erro ao tentar entrar em tela cheia: ${err.message}`);
+            });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
     });
 
     // Lógica de Logout
@@ -92,23 +236,27 @@ async function init() {
 
 // Alternar entre visões (Tradicional vs Agregada vs Config)
 function setupViewToggles() {
-    const btns = document.querySelectorAll('.view-btn');
-    const settingsBtn = document.getElementById('btn-settings');
-    const allBtns = [...btns, settingsBtn];
+    const allBtns = document.querySelectorAll('.view-btn[data-view]');
 
     allBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
+            const targetBtn = e.target.closest('[data-view]');
+            if (!targetBtn) return;
+
             allBtns.forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
+            targetBtn.classList.add('active');
             
-            state.currentView = e.target.dataset.view || 'settings';
+            state.currentView = targetBtn.dataset.view;
             localStorage.setItem('kds_currentView', state.currentView);
             
             document.querySelectorAll('.view-container').forEach(c => c.classList.remove('active'));
-            document.getElementById(`${state.currentView}-view`).classList.add('active');
+            const container = document.getElementById(`${state.currentView}-view`);
+            if (container) container.classList.add('active');
             
             if (state.currentView === 'settings') {
                 renderSettings();
+            } else if (state.currentView === 'admin') {
+                renderAdmin();
             } else {
                 renderCurrentView();
             }
@@ -117,7 +265,7 @@ function setupViewToggles() {
 
     // Restaurar estado visual inicial
     allBtns.forEach(b => b.classList.remove('active'));
-    const activeBtn = Array.from(allBtns).find(b => (b.dataset.view || 'settings') === state.currentView);
+    const activeBtn = Array.from(allBtns).find(b => b.dataset.view === state.currentView);
     if (activeBtn) activeBtn.classList.add('active');
     
     document.querySelectorAll('.view-container').forEach(c => c.classList.remove('active'));
@@ -133,32 +281,29 @@ async function fetchPracas() {
         const res = await fetch('/api/config');
         const data = await res.json();
         state.config = data;
-        state.pracas = ['Geral', ...(data.pracas || [])];
-        renderStationsNav();
+        state.pracas = [{ name: 'Geral' }, ...(data.pracas || []).map(p => ({ name: p }))];
+        renderPracaNav();
     } catch (err) {
         console.error("Erro ao buscar praças:", err);
     }
 }
 
 // Renderiza o menu superior de navegação de praças
-function renderStationsNav() {
-    const nav = document.getElementById('stations-nav');
+function renderPracaNav() {
+    const nav = document.getElementById('praca-nav');
+    if (!nav) return;
     nav.innerHTML = '';
     
-    // Se a praça salva não existir mais nas configs, volta para Geral
-    if (!state.pracas.includes(state.currentPraca)) {
-        state.currentPraca = 'Geral';
-        localStorage.setItem('kds_currentPraca', 'Geral');
-    }
+    const allowed = state.user && state.user.isAdmin ? state.pracas : state.pracas.filter(p => state.user && state.user.allowedPracas && state.user.allowedPracas.includes(p.name));
     
-    state.pracas.forEach(praca => {
+    allowed.forEach(praca => {
         const btn = document.createElement('button');
-        btn.className = `station-btn ${praca === state.currentPraca ? 'active' : ''}`;
-        btn.innerText = praca;
+        btn.className = `station-btn ${praca.name === state.currentPraca ? 'active' : ''}`;
+        btn.innerText = praca.name;
         btn.addEventListener('click', () => {
-            state.currentPraca = praca;
+            state.currentPraca = praca.name;
             localStorage.setItem('kds_currentPraca', state.currentPraca);
-            renderStationsNav();
+            renderPracaNav();
             renderCurrentView();
         });
         nav.appendChild(btn);
@@ -256,6 +401,16 @@ function renderTraditional() {
         // Filtra os itens desse pedido que pertencem à praça selecionada (ou todos se 'Geral')
         let itemsToShow = order.items.filter(i => state.currentPraca === 'Geral' || i.praca === state.currentPraca);
         
+        // Filtra itens cujo tempo de atraso (delay) ainda não passou (ignora na visão Geral e Agregada)
+        if (state.currentPraca !== 'Geral') {
+            const now = Date.now();
+            const orderTime = new Date(order.createdAt).getTime();
+            itemsToShow = itemsToShow.filter(i => {
+                const itemDelayMs = (i.delay || 0) * 1000;
+                return (now - orderTime) >= itemDelayMs;
+            });
+        }
+        
         if (state.currentPraca === 'Geral') {
             const grouped = {};
             itemsToShow.forEach(i => {
@@ -277,7 +432,7 @@ function renderTraditional() {
         
         // Monta o HTML do Card
         const card = document.createElement('div');
-        card.className = 'order-card';
+        card.className = `order-card batch-color-${order.batchColorIndex !== undefined ? order.batchColorIndex : 0}`;
         
         // Se todos os itens daquela PRAÇA específica do pedido estiverem completos, deixa opaco
         const allLocalItemsDone = itemsToShow.length > 0 && itemsToShow.every(i => i.completed);
@@ -465,12 +620,21 @@ function renderSettings() {
         </td>`;
         
         pracasCols.forEach(praca => {
-            const isChecked = prato.pracas.includes(praca);
+            const pracaObj = prato.pracas.find(p => (typeof p === 'string' ? p : p.name) === praca);
+            const isChecked = !!pracaObj;
+            const delayVal = pracaObj && typeof pracaObj !== 'string' ? (pracaObj.delay || 0) : 0;
+            
             tds += `
                 <td style="text-align:center;">
                     <input type="checkbox" class="praca-checkbox" 
                            ${isChecked ? 'checked' : ''} 
                            onchange="togglePraca(${index}, '${praca}')">
+                    <br/>
+                    <input type="number" placeholder="s" 
+                           style="width: 50px; font-size: 0.8rem; margin-top: 4px; display: ${isChecked ? 'inline-block' : 'none'};"
+                           value="${delayVal}"
+                           title="Atraso em Segundos"
+                           onchange="updatePracaDelay(${index}, '${praca}', this.value)">
                 </td>
             `;
         });
@@ -494,10 +658,26 @@ function renderSettings() {
 
 window.togglePraca = function(pratoIndex, pracaName) {
     const prato = state.config.pratos[pratoIndex];
-    if (prato.pracas.includes(pracaName)) {
-        prato.pracas = prato.pracas.filter(p => p !== pracaName);
+    const existingIndex = prato.pracas.findIndex(p => (typeof p === 'string' ? p : p.name) === pracaName);
+    
+    if (existingIndex >= 0) {
+        prato.pracas.splice(existingIndex, 1);
     } else {
-        prato.pracas.push(pracaName);
+        prato.pracas.push({ name: pracaName, delay: 0 });
+    }
+    renderSettings();
+};
+
+window.updatePracaDelay = function(pratoIndex, pracaName, delayValue) {
+    const prato = state.config.pratos[pratoIndex];
+    const existingIndex = prato.pracas.findIndex(p => (typeof p === 'string' ? p : p.name) === pracaName);
+    
+    if (existingIndex >= 0) {
+        if (typeof prato.pracas[existingIndex] === 'string') {
+            prato.pracas[existingIndex] = { name: pracaName, delay: parseInt(delayValue) || 0 };
+        } else {
+            prato.pracas[existingIndex].delay = parseInt(delayValue) || 0;
+        }
     }
 };
 
@@ -520,9 +700,13 @@ window.updatePracaName = function(oldName, newName) {
     }
     
     state.config.pratos.forEach(prato => {
-        const pracaIndex = prato.pracas.indexOf(oldName);
+        const pracaIndex = prato.pracas.findIndex(p => (typeof p === 'string' ? p : p.name) === oldName);
         if (pracaIndex !== -1) {
-            prato.pracas[pracaIndex] = newName.trim();
+            if (typeof prato.pracas[pracaIndex] === 'string') {
+                prato.pracas[pracaIndex] = newName.trim();
+            } else {
+                prato.pracas[pracaIndex].name = newName.trim();
+            }
         }
     });
     
@@ -544,7 +728,7 @@ window.removePraca = function(pracaName) {
     if (confirm(`Tem certeza que deseja excluir a praça "${pracaName}"?`)) {
         state.config.pracas = state.config.pracas.filter(p => p !== pracaName);
         state.config.pratos.forEach(prato => {
-            prato.pracas = prato.pracas.filter(p => p !== pracaName);
+            prato.pracas = prato.pracas.filter(p => (typeof p === 'string' ? p : p.name) !== pracaName);
         });
         renderSettings();
     }

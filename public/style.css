@@ -158,6 +158,13 @@ body {
     flex-direction: column;
 }
 
+/* Cores de Lote (Batch Colors) */
+.order-card.batch-color-0 { border-top: 6px solid #3b82f6; } /* Azul */
+.order-card.batch-color-1 { border-top: 6px solid #10b981; } /* Verde */
+.order-card.batch-color-2 { border-top: 6px solid #8b5cf6; } /* Roxo */
+.order-card.batch-color-3 { border-top: 6px solid #f97316; } /* Laranja */
+.order-card.batch-color-4 { border-top: 6px solid #ec4899; } /* Rosa */
+
 .order-card.completed {
     opacity: 0.5;
     filter: grayscale(1);

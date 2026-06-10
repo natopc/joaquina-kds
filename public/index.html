@@ -17,7 +17,9 @@
         <div class="header-actions">
             <button class="view-btn active" data-view="traditional">📋 Visão por Pedido</button>
             <button class="view-btn" data-view="aggregated">🔥 Visão Agregada (Totais)</button>
-            <button class="view-btn" data-view="settings" id="btn-settings" title="Configurações">⚙️ Configurações</button>
+            <button class="view-btn" data-view="settings" id="btn-settings" title="Cardápio">🍔 Cardápio</button>
+            <button class="view-btn" data-view="admin" id="btn-admin" title="Sistema" style="display:none;">⚙️ Sistema</button>
+            <button class="view-btn" id="btn-fullscreen" title="Tela Cheia">⛶</button>
             <button class="view-btn" id="btn-theme" title="Alternar Tema Claro/Escuro">☀️</button>
             <button class="view-btn" id="btn-logout" title="Sair (Logout)" style="color: var(--danger); border-color: var(--danger);">🚪 Sair</button>
         </div>
@@ -67,6 +69,33 @@
                 <!-- Stations Dynamic List -->
                 <div id="stations-settings-list" class="stations-settings-list">
                     <!-- Cards de configuração das praças injetados via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin / System View -->
+        <div id="admin-view" class="view-container">
+            <div class="settings-header">
+                <h2>Gestão do Sistema e Usuários</h2>
+            </div>
+            
+            <div class="settings-grid">
+                <!-- Global Config -->
+                <div class="settings-card">
+                    <h3>Velocidade do Robô</h3>
+                    <p>De quanto em quanto tempo o sistema busca atualizações no Jotajá (em segundos).</p>
+                    <div class="add-item-form">
+                        <input type="number" id="input-scraper-interval" placeholder="Ex: 10" min="5" max="120">
+                        <button id="btn-save-interval">💾 Salvar Tempo</button>
+                    </div>
+                </div>
+
+                <!-- Users Config -->
+                <div class="settings-card" style="grid-column: 1 / -1;">
+                    <h3>Usuários do Painel</h3>
+                    <div id="users-settings-list" class="stations-settings-list">
+                        <!-- Tabela de Usuários injetada via JS -->
+                    </div>
                 </div>
             </div>
         </div>
