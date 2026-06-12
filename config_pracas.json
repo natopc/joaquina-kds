@@ -39,6 +39,15 @@
       ]
     },
     {
+      "name": "Batatas chips feita na casa",
+      "pracas": [
+        {
+          "name": "DESPACHO",
+          "delay": 0
+        }
+      ]
+    },
+    {
       "name": "Bolinho de arroz - dupla",
       "pracas": [
         "FRITURA"
@@ -161,6 +170,24 @@
       ]
     },
     {
+      "name": "Mousse de chocolate",
+      "pracas": [
+        {
+          "name": "DESPACHO",
+          "delay": 0
+        }
+      ]
+    },
+    {
+      "name": "Nosso Pudim",
+      "pracas": [
+        {
+          "name": "DESPACHO",
+          "delay": 0
+        }
+      ]
+    },
+    {
       "name": "Pastel de queijo - dupla",
       "pracas": [
         "FRITURA"
@@ -170,6 +197,15 @@
       "name": "Pastel de queijo - porção",
       "pracas": [
         "FRITURA"
+      ]
+    },
+    {
+      "name": "Pavê de doce de leite",
+      "pracas": [
+        {
+          "name": "DESPACHO",
+          "delay": 0
+        }
       ]
     },
     {
@@ -230,5 +266,7 @@
       ]
     }
   ],
-  "scraperInterval": 10
+  "scraperInterval": 5,
+  "jotajaEmail": "joaquinacs@jotaja.com",
+  "jotajaPassword": "joaquina123"
 }

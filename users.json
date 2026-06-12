@@ -10,7 +10,12 @@
       "admin"
     ],
     "allowedPracas": [
-      "Geral"
+      "Geral",
+      "FOGÃO",
+      "CHAPA",
+      "FRITURA",
+      "BOQUETA",
+      "DESPACHO"
     ]
   },
   {
@@ -22,7 +27,12 @@
       "aggregated"
     ],
     "allowedPracas": [
-      "Geral"
+      "Geral",
+      "FOGÃO",
+      "CHAPA",
+      "FRITURA",
+      "BOQUETA",
+      "DESPACHO"
     ]
   }
 ]

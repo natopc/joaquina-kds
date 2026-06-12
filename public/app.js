@@ -45,6 +45,8 @@ async function renderAdmin() {
         const config = await configRes.json();
         
         document.getElementById('input-scraper-interval').value = config.scraperInterval || 10;
+        document.getElementById('input-jotaja-email').value = config.jotajaEmail || '';
+        document.getElementById('input-jotaja-password').value = config.jotajaPassword || '';
         
         const list = document.getElementById('users-settings-list');
         list.innerHTML = `
@@ -130,6 +132,21 @@ document.getElementById('btn-save-interval').addEventListener('click', async () 
         body: JSON.stringify(config)
     });
     alert('Velocidade do robô salva com sucesso!');
+});
+
+document.getElementById('btn-save-jotaja-creds').addEventListener('click', async () => {
+    const email = document.getElementById('input-jotaja-email').value;
+    const password = document.getElementById('input-jotaja-password').value;
+    const configRes = await fetch('/api/config');
+    const config = await configRes.json();
+    config.jotajaEmail = email;
+    config.jotajaPassword = password;
+    await fetch('/api/config', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(config)
+    });
+    alert('Credenciais do Jotajá salvas com sucesso! O robô usará esses dados na próxima vez que iniciar.');
 });
 
 // Relógio do Cabeçalho
@@ -364,27 +381,11 @@ async function uncompleteItem(orderId, itemId) {
 
 // Completa 1 unidade de um insumo específico via FIFO
 async function completeFifo(itemName) {
-    // Para dar baixa, precisamos saber de qual praça é (pegamos do estado atual, se for "Geral" pegaremos a primeira correspondência no servidor)
-    const pracaToComplete = state.currentPraca === 'Geral' ? getPracaFallback(itemName) : state.currentPraca;
-    
     await fetch('/api/complete-fifo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemName, praca: pracaToComplete })
+        body: JSON.stringify({ itemName, praca: state.currentPraca })
     });
-}
-
-// Fallback se estiver na aba "Geral"
-function getPracaFallback(itemName) {
-    // Procura no array pendente qualquer item com esse nome e retorna a praça dele
-    for(let o of state.orders) {
-        if(o.status==='pending') {
-            for(let i of o.items) {
-                if(i.name === itemName) return i.praca;
-            }
-        }
-    }
-    return 'Geral';
 }
 
 // Renderiza a visão Tradicional (Cards)
@@ -425,6 +426,29 @@ function renderTraditional() {
             itemsToShow = Object.values(grouped).map(g => ({ ...g, completed: g.allCompleted }));
         }
         
+        // Agrupa itens iguais para mostrar a quantidade corretamente na visão tradicional
+        const visualGrouped = [];
+        itemsToShow.forEach(i => {
+            const obsText = i.observacao || i.observation || i.obs || i.observacoes || i.notes || i.observações || '';
+            const existing = visualGrouped.find(g => g.name === i.name && g.obsText === obsText && g.completed === i.completed && g.praca === i.praca);
+            if (existing) {
+                existing.qty = (existing.qty || 1) + 1;
+                if (i.allIds) {
+                    existing.allIds.push(...i.allIds);
+                } else {
+                    existing.allIds.push(i.id);
+                }
+            } else {
+                visualGrouped.push({
+                    ...i,
+                    qty: 1,
+                    obsText,
+                    allIds: i.allIds ? [...i.allIds] : [i.id]
+                });
+            }
+        });
+        itemsToShow = visualGrouped;
+
         // Se este pedido não tiver itens para esta praça e não estivermos em "Geral", pula ele
         if (itemsToShow.length === 0 && state.currentPraca !== 'Geral') return;
         
@@ -459,8 +483,10 @@ function renderTraditional() {
             itemEl.style.flexDirection = 'column';
             itemEl.style.alignItems = 'flex-start';
 
+            const qtyHtml = item.qty && item.qty > 1 ? `<span style="font-weight: bold; color: var(--warning); margin-right: 5px;">${item.qty}x</span>` : '';
+            
             itemEl.innerHTML = `
-                <span class="item-name">${item.name}</span>
+                <span class="item-name">${qtyHtml}${item.name}</span>
                 ${obsHtml}
             `;
             

@@ -28,7 +28,7 @@
             <div class="clock" id="clock">00:00:00</div>
         </div>
     </header>    <!-- Praças / Stations Tabs -->
-    <nav class="stations-nav" id="stations-nav">
+    <nav class="stations-nav" id="praca-nav">
         <!-- Injetado dinamicamente via app.js -->
     </nav>
 
@@ -81,12 +81,27 @@
             
             <div class="settings-grid">
                 <!-- Global Config -->
-                <div class="settings-card">
-                    <h3>Velocidade do Robô</h3>
+                <div class="settings-card" style="align-self: start;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin: 0;">Velocidade do Robô</h3>
+                        <div class="add-item-form" style="margin: 0;"><button id="btn-save-interval">💾 Salvar Tempo</button></div>
+                    </div>
                     <p>De quanto em quanto tempo o sistema busca atualizações no Jotajá (em segundos).</p>
                     <div class="add-item-form">
                         <input type="number" id="input-scraper-interval" placeholder="Ex: 10" min="5" max="120">
-                        <button id="btn-save-interval">💾 Salvar Tempo</button>
+                    </div>
+                </div>
+
+                <!-- Credenciais Jotajá -->
+                <div class="settings-card" style="justify-self: start; align-self: start; max-width: 400px; width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin: 0;">Credenciais do Jotajá</h3>
+                        <div class="add-item-form" style="margin: 0;"><button id="btn-save-jotaja-creds">💾 Salvar Credenciais</button></div>
+                    </div>
+                    <p>Email e senha para o robô acessar o painel original.</p>
+                    <div class="add-item-form" style="display:flex; flex-direction:column; gap:8px;">
+                        <input type="email" id="input-jotaja-email" placeholder="Email do Jotajá">
+                        <input type="password" id="input-jotaja-password" placeholder="Senha">
                     </div>
                 </div>
 

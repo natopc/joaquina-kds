@@ -14,20 +14,32 @@ const axios = require('axios');
 async function startScraper() {
   let browser;
   try {
+    // Buscar credenciais do backend local
+    let jotajaEmail = 'joaquinacs@jotaja.com';
+    let jotajaPassword = 'joaquina123';
+    try {
+        const cfgRes = await axios.get('http://localhost:3000/api/config');
+        if (cfgRes.data) {
+            if (cfgRes.data.jotajaEmail) jotajaEmail = cfgRes.data.jotajaEmail;
+            if (cfgRes.data.jotajaPassword) jotajaPassword = cfgRes.data.jotajaPassword;
+        }
+    } catch(e) {
+        console.log("Erro ao buscar configurações, usando credenciais padrão.");
+    }
+
     // headless: true -> roda 100% invisível em segundo plano. Evita que fechem a janela sem querer.
     browser = await chromium.launch({ headless: true });  
-  const context = await browser.newContext();
-  const page = await context.newPage();
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
-  console.log("Iniciando o robô scraper...");
+    console.log("Iniciando o robô scraper...");
 
-  // 1. Acesse a URL de login
-  await page.goto('https://painel.jotaja.com.br/', { waitUntil: 'networkidle' });
+    // 1. Acesse a URL de login
+    await page.goto('https://painel.jotaja.com.br/', { waitUntil: 'networkidle' });
 
-    // --- ATENÇÃO: COLOQUE SEUS SELETORES REAIS E CREDENCIAIS AQUI ---
-    // Seletores reais da Jotajá baseados na página deles:
-    await page.fill('input[formcontrolname="email"]', 'joaquinacs@jotaja.com');
-    await page.fill('input[formcontrolname="senha"]', 'joaquina123');
+    // Preenche credenciais
+    await page.fill('input[formcontrolname="email"]', jotajaEmail);
+    await page.fill('input[formcontrolname="senha"]', jotajaPassword);
     await page.click('button.login-form-button');
     
     console.log("Aguardando login...");
@@ -117,6 +129,9 @@ async function startScraper() {
                          for (let i = resumoIdx + 1; i < lines.length; i++) {
                             const line = lines[i];
                             if (line.startsWith('Qtd:')) {
+                               let qtdMatch = line.match(/Qtd:\s*(\d+)/i);
+                               let qty = qtdMatch ? parseInt(qtdMatch[1], 10) : 1;
+
                                let nextLineIdx = i + 1;
                                while (nextLineIdx < lines.length && (
                                    lines[nextLineIdx].startsWith('Valor:') || 
@@ -133,7 +148,11 @@ async function startScraper() {
                                      observacao += lines[obsLineIdx].trim() + ' ';
                                      obsLineIdx++;
                                   }
-                                  items.push({ name: itemName, observacao: observacao.trim() });
+                                  
+                                  for (let k = 0; k < qty; k++) {
+                                      items.push({ name: itemName, observacao: observacao.trim() });
+                                  }
+                                  
                                   i = obsLineIdx - 1; 
                                }
                             }

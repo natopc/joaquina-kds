@@ -354,8 +354,12 @@ app.post('/api/complete-fifo', (req, res) => {
   let orderToUpdate = null;
 
   for (const order of pendingOrders) {
-    // Procura por um item com esse nome e praça que ainda não esteja completo
-    const item = order.items.find(i => i.name === itemName && i.praca === praca && !i.completed);
+    // Procura por um item com esse nome e praça (ou qualquer praça se for Geral) que ainda não esteja completo
+    const item = order.items.find(i => 
+      i.name === itemName && 
+      (praca === 'Geral' || i.praca === praca) && 
+      !i.completed
+    );
     if (item) {
       itemToComplete = item;
       orderToUpdate = order;
@@ -364,7 +368,16 @@ app.post('/api/complete-fifo', (req, res) => {
   }
 
   if (itemToComplete) {
-    itemToComplete.completed = true;
+    // Se o item foi quebrado em múltiplas praças (mesmo originalItemId), conclui todos juntos
+    if (itemToComplete.originalItemId) {
+      orderToUpdate.items.forEach(i => {
+        if (i.originalItemId === itemToComplete.originalItemId) {
+          i.completed = true;
+        }
+      });
+    } else {
+      itemToComplete.completed = true;
+    }
     
     // Verifica se o pedido agora está completo
     if (orderToUpdate.items.every(i => i.completed)) {
